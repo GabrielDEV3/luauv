@@ -641,7 +641,6 @@ Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para d
 
 ✉️ Contato
 
-· Issues: GitHub Issues
----
+· Issues: https://github.com/GabrielDEV3/luauv/issues
 
 Tags: lua, libuv, async, threading, c, event-loop
