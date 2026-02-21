@@ -43,11 +43,11 @@ LuaUV é uma biblioteca em C que integra a máquina virtual Lua com o loop de ev
 Antes de compilar, você precisa ter os diretórios do Lua e libuv no local esperado. Crie um arquivo `build.properties` na raiz do projeto com o seguinte conteúdo:
 
 ```properties
-LUA_DIR = lua-5.5.0
-UV_DIR = libuv-1.52.0
+LUA_DIR = lua-dir
+UV_DIR = libuv-dir
 ```
 
-Estes diretórios devem conter os códigos-fonte do Lua 5.5.0 e libuv 1.52.0 respectivamente.
+Estes diretórios devem conter os códigos-fonte do Lua e libuv respectivamente.
 
 Compilando a biblioteca
 
@@ -642,8 +642,6 @@ Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para d
 ✉️ Contato
 
 · Issues: GitHub Issues
-· Email: seu-email@exemplo.com
-
 ---
 
 Tags: lua, libuv, async, threading, c, event-loop
