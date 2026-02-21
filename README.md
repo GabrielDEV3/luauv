@@ -1,90 +1,269 @@
-LuaUV
-LuaUV é uma biblioteca que integra Lua com libuv, permitindo a execução de tarefas Lua de forma assíncrona em threads separadas. Ela utiliza o loop de eventos do libuv para garantir o envio seguro de funções, gerenciamento de deadlocks e coleta de lixo automática.
-Estrutura do Projeto
-A organização de diretórios do projeto segue o padrão abaixo:
-luauv/
-├── luauv.h           # Interface da biblioteca
-├── luauv.c           # Implementação principal
-├── lua/              # Código-fonte do Lua (Dependência)
-├── libuv/            # Código-fonte do libuv (Dependência)
-├── tests/            # Exemplos e suítes de teste
-├── CMakeLists.txt    # Configuração de build
-├── build/            # Binários gerados
-└── compile           # Script auxiliar de compilação
+LuaUV - Integração Lua com libuv
 
-Inicialização Rápida
-Para usar a LuaUV, você deve inicializar a estrutura, iniciar a thread de processamento e então postar suas tarefas.
+https://img.shields.io/badge/License-MIT-yellow.svg
+https://img.shields.io/badge/Lua-5.5-blue.svg
+https://img.shields.io/badge/libuv-1.52-green.svg
+
+LuaUV é uma biblioteca em C que integra a máquina virtual Lua com o loop de eventos libuv, permitindo execução assíncrona de scripts Lua em uma thread dedicada.
+
+📋 Índice
+
+· Características
+· Estrutura do Projeto
+· Pré-requisitos
+· Compilação
+· Uso Básico
+· API Reference
+· Exemplos
+· Testes
+· Limitações
+· Licença
+
+✨ Características
+
+· Thread dedicada para execução Lua com loop libuv
+· Postagem segura de tarefas para execução na thread Lua
+· Coleta de lixo automática via idle callback
+· Prevenção contra deadlocks
+· Interface simples e intuitiva
+
+📁 Estrutura do Projeto
+
+```
+luauv/
+├── luauv.h          # Cabeçalho principal
+├── luauv.c          # Implementação principal
+├── lua-5.5.0/       # Código-fonte do Lua 5.5
+├── libuv-1.52.0/    # Código-fonte do libuv 1.52
+├── tests/           # Exemplos e testes
+├── CMakeLists.txt   # Configuração CMake
+├── build.properties # Propriedades de build
+├── compile         # Script de compilação
+└── build/          # Diretório de build
+```
+
+🔧 Pré-requisitos
+
+· GCC ou Clang
+· CMake (3.10+)
+· pthreads
+· Git (para clonar sub-módulos)
+
+🚀 Compilação
+
+Usando o script de compilação
+
+```bash
+# Compilar um teste específico
+./compile tests/test_basic.c -o meu_programa
+
+# Compilar todos os testes
+./compile all
+```
+
+Usando CMake manualmente
+
+```bash
+mkdir build
+cd build
+cmake ..
+make
+```
+
+💻 Uso Básico
+
+Exemplo mínimo
+
+```c
 #include "luauv.h"
+#include <stdio.h>
+
+void minha_task(lua_State* L) {
+    luaL_dostring(L, "print('Olá do Lua!')");
+}
 
 int main() {
     luauv_t uv;
     
-    // 1. Inicializa e inicia a thread do loop
+    // Inicializar e iniciar
     luauv_init(&uv);
     luauv_start(&uv);
-
-    // 2. Envia uma tarefa (task) para a thread Lua
-    // Exemplo usando uma função auxiliar:
-    luauv_post(&uv, [](lua_State* L){
-        luaL_dostring(L, "print('Olá do Lua!')");
-    });
-
-    // 3. Finaliza a execução
+    
+    // Enviar tarefa para execução
+    luauv_post(&uv, minha_task);
+    
+    // Parar e limpar
     luauv_stop(&uv);
     luauv_destroy(&uv);
     
     return 0;
 }
+```
 
-API Reference (Funções Principais)
-| Função | Descrição |
-|---|---|
-| luauv_init(luauv_t* self) | Inicializa a estrutura interna e o estado da biblioteca. |
-| luauv_start(luauv_t* self) | Cria a thread dedicada e inicia o loop libuv junto ao lua_State. |
-| luauv_post(luauv_t* self, void (*func)(lua_State*)) | Agenda uma função C para execução na thread Lua. Esta chamada é bloqueante até o término da tarefa. |
-| luauv_stop(luauv_t* self) | Solicita a parada do loop de eventos e aguarda o fechamento da thread. |
-| luauv_destroy(luauv_t* self) | Libera todos os recursos, fecha o estado Lua e limpa a memória. |
-Testes e Compilação
-Criando um Teste Básico
-Crie o arquivo em tests/test_basic.c:
+Executando código Lua de arquivos
+
+```c
+void executar_arquivo(lua_State* L) {
+    if (luaL_loadfile(L, "script.lua") == LUA_OK) {
+        lua_pcall(L, 0, LUA_MULTRET, 0);
+    } else {
+        fprintf(stderr, "Erro: %s\n", lua_tostring(L, -1));
+    }
+}
+```
+
+📚 API Reference
+
+Estruturas
+
+luauv_t
+
+Estrutura principal que mantém o estado da instância LuaUV.
+
+```c
+typedef struct luauv_s {
+    lua_State* L;           // Estado Lua
+    uv_loop_t* loop;        // Loop libuv
+    uv_async_t* async;      // Handler async
+    uv_idle_t* idle;        // Handler idle
+    pthread_t thread;       // Thread principal
+    pthread_t lua_thread_id; // ID da thread Lua
+    pthread_mutex_t* mtx;   // Mutex para sincronização
+    pthread_cond_t* cv;     // Condition variable
+    void (*task)(lua_State*); // Tarefa atual
+} luauv_t;
+```
+
+Funções
+
+Função Descrição
+int luauv_init(luauv_t* self) Inicializa a estrutura
+int luauv_start(luauv_t* self) Inicia a thread Lua/libuv
+void luauv_post(luauv_t* self, void (*func)(lua_State*)) Envia tarefa para execução (bloqueante)
+void luauv_stop(luauv_t* self) Para o loop e aguarda thread
+void luauv_destroy(luauv_t* self) Libera recursos alocados
+
+📝 Exemplos
+
+Exemplo 1: Múltiplas tarefas
+
+```c
+#include "luauv.h"
+#include <stdio.h>
+#include <unistd.h>
+
+void tarefa1(lua_State* L) {
+    luaL_dostring(L, "print('Tarefa 1: ' .. os.date())");
+}
+
+void tarefa2(lua_State* L) {
+    luaL_dostring(L, "print('Tarefa 2: Calculando...')");
+    luaL_dostring(L, "local s = 0; for i=1,1000000 do s = s + i end; print('Soma:', s)");
+}
+
+int main() {
+    luauv_t uv;
+    luauv_init(&uv);
+    luauv_start(&uv);
+    
+    printf("Enviando tarefas...\n");
+    
+    luauv_post(&uv, tarefa1);
+    luauv_post(&uv, tarefa2);
+    luauv_post(&uv, tarefa1);
+    
+    sleep(1); // Aguardar execução
+    
+    luauv_stop(&uv);
+    luauv_destroy(&uv);
+    
+    return 0;
+}
+```
+
+Exemplo 2: Estado persistente
+
+```c
+void inicializar_estado(lua_State* L) {
+    // Criar tabela global compartilhada
+    luaL_dostring(L, 
+        "compartilhado = {"
+        "   contador = 0,"
+        "   dados = {}"
+        "}"
+    );
+}
+
+void incrementar_contador(lua_State* L) {
+    luaL_dostring(L,
+        "compartilhado.contador = compartilhado.contador + 1;"
+        "print('Contador:', compartilhado.contador);"
+    );
+}
+
+// Uso: luauv_post(&uv, incrementar_contador);
+```
+
+🧪 Testes
+
+Teste básico (tests/test_basic.c)
+
+```c
 #include "luauv.h"
 #include <stdio.h>
 
 void print_task(lua_State* L) {
-    luaL_dostring(L, "print('Executando tarefa Lua via Thread!')");
+    luaL_dostring(L, "print('Executando tarefa Lua!')");
 }
 
 int main() {
     luauv_t uv;
     luauv_init(&uv);
     luauv_start(&uv);
-
-    // Posta a tarefa para a thread secundária
+    
     luauv_post(&uv, print_task);
-
+    
     luauv_stop(&uv);
     luauv_destroy(&uv);
     return 0;
 }
+```
 
-Compilando e Executando
-O script compile gerencia o download automático das versões corretas das dependências.
-# Dar permissão de execução
-chmod +x compile
+Compilar e executar:
 
-# Compilar o teste
+```bash
 ./compile tests/test_basic.c -o test_basic
-
-# Executar
 ./test_basic
+# Saída esperada:
+# Executando tarefa Lua!
+```
 
-Saída Esperada:
-> Executando tarefa Lua via Thread!
-> 
-Dicas Importantes
-> [!CAUTION]
-> Aviso de Deadlock: Jamais chame luauv_post de dentro de uma função que já está rodando na thread Lua. Isso causará um travamento infinito (Deadlock), pois a thread tentará esperar por si mesma.
-> 
- * Scripts Externos: Você pode utilizar luaL_loadfile dentro do luauv_post para carregar arquivos .lua complexos em vez de strings curtas.
- * Coleta de Lixo: O uso do loop idle do libuv permite que o coletor de lixo (GC) do Lua funcione de forma eficiente sem interromper o fluxo principal do programa C.
-Gostaria que eu criasse um script de exemplo em Lua para interagir com essa integração via C?
+⚠️ Limitações
+
+· Deadlock prevention: Não chamar luauv_post de dentro da thread Lua
+· Tarefas bloqueantes: A thread principal espera a conclusão da tarefa via condition variable
+· Single-threaded Lua: O estado Lua é usado apenas na thread dedicada
+· Sem suporte a múltiplos estados: Uma instância gerencia um único estado Lua
+
+🤝 Contribuindo
+
+Contribuições são bem-vindas! Por favor, siga estes passos:
+
+1. Fork o projeto
+2. Crie uma branch (git checkout -b feature/nova-feature)
+3. Commit suas mudanças (git commit -am 'Adiciona nova feature')
+4. Push para a branch (git push origin feature/nova-feature)
+5. Abra um Pull Request
+
+📄 Licença
+
+Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para detalhes.
+
+✉️ Contato
+
+· Issues: GitHub Issues
+· Email: seu-email@exemplo.com
+
+---
+
+Tags: lua, libuv, async, threading, c, event-loop
