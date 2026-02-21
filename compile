@@ -1,0 +1,56 @@
+#!/bin/bash
+# compile - compile a .c file linking with libluauv.so
+
+if [ -z "$1" ]; then
+    echo "Usage: ./compile <file.c>"
+    exit 1
+fi
+
+# Build directory (can be overridden by environment variable)
+BUILD="${BUILD:-./build}"
+
+SRC_FILE="$1"
+BASENAME=$(basename "$SRC_FILE" .c)
+EXEC_FILE="$(dirname "$SRC_FILE")/$BASENAME"
+
+# Paths based on BUILD
+LIB_PATH="$BUILD/lib/libluauv.so"
+INCLUDE_BASE="$BUILD/include/luauv"  # Now using $BUILD/include
+
+if [ ! -f "$LIB_PATH" ]; then
+    echo "Error: libluauv.so not found at $LIB_PATH"
+    echo "Please run 'make' first to build the library."
+    exit 1
+fi
+
+if [ ! -d "$INCLUDE_BASE" ]; then
+    echo "Error: include directory not found at $INCLUDE_BASE"
+    exit 1
+fi
+
+if [ ! -d "$INCLUDE_BASE/lua" ]; then
+    echo "Error: lua subdirectory not found at $INCLUDE_BASE/lua"
+    exit 1
+fi
+
+if [ ! -d "$INCLUDE_BASE/uv" ]; then
+    echo "Error: uv subdirectory not found at $INCLUDE_BASE/uv"
+    exit 1
+fi
+
+# Compile the program with multiple include paths
+gcc "$SRC_FILE" \
+    -I"$INCLUDE_BASE" \
+    -I"$INCLUDE_BASE/lua" \
+    -I"$INCLUDE_BASE/uv" \
+    -L"$(dirname "$LIB_PATH")" -lluauv \
+    -Wl,-rpath="$(dirname "$LIB_PATH")" \
+    -o "$EXEC_FILE"
+
+if [ $? -eq 0 ]; then
+    echo "Successfully compiled: $EXEC_FILE"
+    echo "Run with: ./$EXEC_FILE"
+else
+    echo "Compilation failed."
+    exit 1
+fi
